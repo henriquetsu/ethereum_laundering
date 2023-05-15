@@ -58,63 +58,68 @@ def cardinalidade(df):
     Argumentos: somente 01 (um) argumento, o DataFrame que se deseja
     analisar.
     """
-    import pandas as pd
-
-    # df_temporario = df.select_dtypes(exclude=["float64"])
     df_temporario = df.copy()
-    matriz_cardialidade = []
+    dct_cardialidade = {}
 
     for coluna in df_temporario.columns:
 
         if dtype(df_temporario[coluna]) not in [float, 'float32', 'float64']:
             df_temporario.loc[df_temporario[coluna].isna(), coluna] = 'NaN'
             proporcao_nulos = len(df_temporario.loc[df_temporario[coluna] == 'NaN']) / len(df_temporario)
-            matriz_cardialidade.append([
-                coluna, dtype(df_temporario[coluna]), len(df_temporario[coluna].unique()),
-                sorted(df_temporario[coluna].unique()),
-                proporcao_nulos
-            ])
+            dct_cardialidade[coluna] = {
+                "Atributo": coluna,
+                "DType": dtype(df_temporario[coluna]),
+                "Cardinalidade": len(df_temporario[coluna].unique()),
+                "Valores": sorted(df_temporario[coluna].unique()),
+                "Proporção Nulos": proporcao_nulos
+            }
 
         else:
             df_temporario.loc[df_temporario[coluna].isna(), coluna] = np.nan
             proporcao_nulos = len(df_temporario.loc[df_temporario[coluna].isna()]) / len(df_temporario)
-            matriz_cardialidade.append([
-                coluna, dtype(df_temporario[coluna]), 'continuous',
-                [df_temporario[coluna].min(), df_temporario[coluna].max()],
-                proporcao_nulos
-            ])
 
-    matriz_cardialidade = pd.DataFrame(matriz_cardialidade, columns=[
-        "Atributo", "DType", "Cardinalidade", "Valores", "Proporção Nulos"
-    ])
-    matriz_cardialidade.sort_values(by=["Cardinalidade", "Atributo"], inplace=True, ascending=True)
+            if (df_temporario[coluna].std() == 0):
+                valores = sorted(df_temporario[coluna].unique())
+            else:
+                valores = [df_temporario[coluna].min(), df_temporario[coluna].max()]
 
-    return matriz_cardialidade
+            dct_cardialidade[coluna] = {
+                "Atributo": coluna,
+                "DType": dtype(df_temporario[coluna]),
+                "Cardinalidade": len(sorted(df_temporario[coluna].unique())),  # cardinalidade_n,
+                "Valores": valores,
+                "Proporção Nulos": proporcao_nulos
+            }
+
+    df_cardialidade = pd.DataFrame.from_dict(dct_cardialidade, orient='index')
+
+    return df_cardialidade
 
 
-def cardinalidade_com_descricao(df):
+def check_for_equal_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """This function looks for equal columns within a pd.DataFrame.
+
+    Args:
+        df (pd.DataFrame): _description_
+
+    Returns:
+        pd.DataFrame: _description_
     """
-    responsável: suto
-    data: 27/10/19
-    objetivo: essa função retorna dois dataframes.
-        (1) O primeiro com a descrição dos atributos numéricos (int ou
-        float); e
-        (2) O segundo com os atributos não numéricos e sua respectiva
-        cardinalidade em ordem crescente.
-    argumentos: somente 01 (um) argumento, o DataFrame que se deseja analisar.
-    """
-    import pandas as pd
+    df_equal_columns = pd.DataFrame(columns=df.columns.tolist(), index=df.columns.tolist())
 
-    df_temporario = df.select_dtypes(exclude=["int64", "float64"])
-    matriz_cardialidade = []
+    for column in df.columns:
+        for line in df.columns:
+            if df[column].equals(df[line]):
+                df_equal_columns.loc[line, column] = 1
+            else:
+                df_equal_columns.loc[line, column] = 0
 
-    for i, coluna in df_temporario.items():
-        matriz_cardialidade.append([i, len(df_temporario[i].unique())])
+    df_equal_columns = df_equal_columns.loc[
+        df_equal_columns.sum(axis=0) > 1,
+        df_equal_columns.sum(axis=1) > 1
+    ]
 
-    matriz_cardialidade = pd.DataFrame(matriz_cardialidade, columns=["Atributo", "Cardinalidade"])
-    matriz_cardialidade.sort_values(by="Cardinalidade", inplace=True, ascending=True)
-
-    return matriz_cardialidade.T, df.describe()
+    return df_equal_columns
 
 
 # TODO: remover essa função e colocar isolada numa outra classe.
@@ -134,9 +139,12 @@ def r2_ajustado(x, y, y_pred):
 
 if __name__ == '__main__':
     df = pd.DataFrame({
-        'a': [1, 2, 3], 'b': ['a', 'b', 'c'], 'c': [1.23, 0.987, 123.5]
+        'a': [1, 2, 3], 'b': ['a', 'b', 'c'], 'c': [1.23, 0.987, 123.5],
+        'd': [0.001, 0.001, 0.001]
         })
 
     breve_descricao(df)
 
     display(cardinalidade(df))
+    
+# %%
