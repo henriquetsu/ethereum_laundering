@@ -177,4 +177,3 @@ pyrightconfig.json
 data/*/*.csv
 data/*/*.pqt
 data/*/*.tsv
-data/*/*.xls*
